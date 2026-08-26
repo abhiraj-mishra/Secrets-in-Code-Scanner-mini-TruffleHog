@@ -1,0 +1,12 @@
+# ============================================================
+# FAKE TEST CONFIG FILE -- FOR SCANNER TESTING ONLY
+# None of the values below are real credentials.
+# ============================================================
+
+api_key = "FAKE_CONFIG_API_KEY_9876543210"
+password: "FakeConfigPassword456"
+access_token = "FAKE_ACCESS_TOKEN_zzz999yyy888"
+
+# Normal config lines (should NOT be flagged)
+app_name = "MyTestApp"
+debug_mode = true
