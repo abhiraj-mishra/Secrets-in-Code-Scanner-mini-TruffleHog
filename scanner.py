@@ -1,22 +1,13 @@
 #!/usr/bin/env python3
-"""
-scanner.py
+"""CLI entry point for the secrets-in-code scanner.
 
-Secrets-in-Code Scanner
-------------------------
-A basic CLI tool to scan a local project directory for hardcoded
-secrets BEFORE running `git add`.
+Scans a directory for hardcoded secrets so they can be removed before
+running `git add`. The tool only reads files; it never modifies them and
+never runs git commands.
 
 Usage:
     python scanner.py .
     python scanner.py ./my-project
-
-Exit codes:
-    0 -> no potential secrets found (PASSED)
-    1 -> potential secrets found (FAILED)
-
-This tool does NOT modify any files and does NOT run any git commands.
-It only reads files and prints a report.
 """
 
 import os
@@ -26,52 +17,33 @@ from detectors import scan_line_with_regex
 from entropy import find_entropy_candidates
 from reporter import print_header, print_finding, print_summary, redact
 
-
-# ---------------------------------------------------------------------
-# Configuration (easy to edit)
-# ---------------------------------------------------------------------
-
-# File extensions we consider "source/config" files worth scanning.
+# File types we care about.
 SCANNABLE_EXTENSIONS = {
     ".py", ".js", ".java", ".cpp", ".c", ".h", ".php", ".go", ".rs",
     ".json", ".yaml", ".yml", ".xml", ".ini", ".cfg", ".conf",
     ".env", ".txt",
 }
 
-# Directories to skip entirely.
+# Directories that never contain source we want to scan.
 IGNORED_DIRS = {
     ".git", "node_modules", "venv", ".venv", "__pycache__",
 }
 
 
-# ---------------------------------------------------------------------
-# Step 1: Recursive file walker
-# ---------------------------------------------------------------------
-
 def is_binary_file(file_path: str, blocksize: int = 1024) -> bool:
-    """
-    Heuristic check to skip binary files: if a chunk of the file
-    contains a null byte, treat it as binary.
-    """
+    """Heuristic: a null byte in the first chunk means the file is binary."""
     try:
         with open(file_path, "rb") as f:
             chunk = f.read(blocksize)
         return b"\x00" in chunk
     except OSError:
-        # If we can't read it, treat it as unreadable/binary-ish
         return True
 
 
 def find_scannable_files(root_dir: str):
-    """
-    Recursively walk `root_dir`, yielding file paths that:
-        - are not inside an ignored directory
-        - have a scannable extension
-        - are not binary files
-    """
+    """Yield readable, non-binary files under root_dir with a known extension."""
     for current_dir, dirnames, filenames in os.walk(root_dir):
-        # Modify dirnames in-place to prevent os.walk from descending
-        # into ignored directories (e.g. .git, node_modules, venv).
+        # Drop ignored dirs in place so os.walk never descends into them.
         dirnames[:] = [d for d in dirnames if d not in IGNORED_DIRS]
 
         for filename in filenames:
@@ -80,24 +52,12 @@ def find_scannable_files(root_dir: str):
                 continue
 
             file_path = os.path.join(current_dir, filename)
+            if not is_binary_file(file_path):
+                yield file_path
 
-            if is_binary_file(file_path):
-                continue
-
-            yield file_path
-
-
-# ---------------------------------------------------------------------
-# Steps 2-4: Combined regex + entropy scanning
-# ---------------------------------------------------------------------
 
 def scan_file(file_path: str):
-    """
-    Scan a single file line-by-line for secrets using both
-    regex detection and Shannon entropy detection.
-
-    Returns a list of finding dicts ready for the reporter.
-    """
+    """Run regex and entropy detection over every line of a file."""
     findings = []
 
     try:
@@ -108,7 +68,6 @@ def scan_file(file_path: str):
         return findings
 
     for line_number, line in enumerate(lines, start=1):
-        # --- Regex detection ---
         regex_hits = scan_line_with_regex(line)
         for hit in regex_hits:
             findings.append({
@@ -121,14 +80,11 @@ def scan_file(file_path: str):
                 "entropy": None,
             })
 
-        # --- Entropy detection ---
-        # To avoid double-reporting the same value that regex already
-        # caught, we skip entropy candidates that overlap with a
-        # regex-matched value on the same line.
+        # Skip entropy hits whose value regex already caught on this line,
+        # so the same secret is reported only once.
         regex_matched_values = {hit["matched_value"] for hit in regex_hits}
 
-        entropy_candidates = find_entropy_candidates(line)
-        for candidate in entropy_candidates:
+        for candidate in find_entropy_candidates(line):
             if not candidate["suspicious"]:
                 continue
             if candidate["value"] in regex_matched_values:
@@ -146,10 +102,6 @@ def scan_file(file_path: str):
 
     return findings
 
-
-# ---------------------------------------------------------------------
-# Step 6: Orchestration, report, exit codes
-# ---------------------------------------------------------------------
 
 def main():
     if len(sys.argv) != 2:
@@ -169,17 +121,14 @@ def main():
 
     for file_path in find_scannable_files(target_dir):
         files_scanned += 1
-        file_findings = scan_file(file_path)
-        all_findings.extend(file_findings)
+        all_findings.extend(scan_file(file_path))
 
     for finding in all_findings:
         print_finding(finding)
 
     print_summary(files_scanned, len(all_findings))
 
-    # Exit code contract:
-    # 0 = PASSED (no secrets found)
-    # 1 = FAILED (potential secrets found)
+    # 0 = PASSED (no secrets), 1 = FAILED (potential secrets found).
     sys.exit(1 if all_findings else 0)
 
 

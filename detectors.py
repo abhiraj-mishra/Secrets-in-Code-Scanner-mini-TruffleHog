@@ -1,22 +1,7 @@
-"""
-detectors.py
-
-Simple, easy-to-understand regex patterns for common secret formats.
-
-Each detector is defined as a dict with:
-    - name:      human-readable secret type
-    - pattern:   compiled regex
-    - severity:  "HIGH" or "MEDIUM"
-
-Keep these patterns intentionally basic -- this is a learning project,
-not a production-grade secret scanner. Real tools like GitLeaks/TruffleHog
-have hundreds of much more specific patterns and validation logic.
-"""
+"""Simple regex patterns for common secret formats."""
 
 import re
 
-# Each pattern tries to match the common "shape" of that secret type.
-# Patterns are intentionally simple per project requirements.
 REGEX_DETECTORS = [
     {
         "name": "Generic API Key",
@@ -42,7 +27,6 @@ REGEX_DETECTORS = [
     {
         "name": "GitHub Token",
         "severity": "HIGH",
-        # GitHub personal access tokens / fine-grained tokens
         "pattern": re.compile(
             r"""(gh[pousr]_[A-Za-z0-9]{20,})"""
         ),
@@ -79,23 +63,14 @@ REGEX_DETECTORS = [
 
 
 def scan_line_with_regex(line: str):
-    """
-    Run all regex detectors against a single line of text.
-
-    Returns a list of dicts:
-        {
-            "name": secret type name,
-            "severity": "HIGH" or "MEDIUM",
-            "matched_value": the actual matched secret substring,
-        }
-    """
+    """Run every detector against one line and return matching secrets."""
     findings = []
 
     for detector in REGEX_DETECTORS:
         match = detector["pattern"].search(line)
         if match:
-            # Prefer the last capturing group (the actual secret value)
-            # if the pattern has one; otherwise use the whole match.
+            # Use the last capture group if present (the secret value
+            # itself), otherwise the whole match.
             if match.groups():
                 matched_value = match.groups()[-1]
             else:

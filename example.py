@@ -1,7 +1,5 @@
-# ============================================================
-# FAKE TEST FILE -- FOR SCANNER TESTING ONLY
+# FAKE TEST FILE - FOR SCANNER TESTING ONLY
 # None of the values below are real credentials.
-# ============================================================
 
 API_KEY = "FAKE_API_KEY_123456789"
 
@@ -19,10 +17,9 @@ jwt_example = "eyJFAKEHEADER123.eyJFAKEPAYLOAD456.FAKESIGNATURE789"
 
 secret = "TotallyFakeSecretValue987"
 
-# A random-looking high-entropy string that no regex will catch,
-# but the entropy detector should flag it as suspicious.
+# Random-looking value the entropy detector should flag.
 random_config_value = "aX9$kLm2#pQr8vTz1&wEbN4uYc7"
 
-# Normal code below (should NOT be flagged)
+# Normal code below, should not be flagged.
 greeting_message = "Hello, this is just a normal string in the code."
 count = 42

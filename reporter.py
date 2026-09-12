@@ -1,29 +1,15 @@
-"""
-reporter.py
+"""Report formatting and secret redaction."""
 
-Handles:
-    - Redacting secret values before printing (never show full secrets)
-    - Formatting the terminal report shown to the user
-"""
 
 def redact(value: str, show_chars: int = 4) -> str:
-    """
-    Redact a secret value, keeping only the first `show_chars`
-    characters visible, replacing the rest with asterisks.
-
-    Example:
-        redact("sk_test_123456789abcdef") -> "sk_t********************"
-    """
+    """Keep the first few characters, mask the rest with asterisks."""
     if not value:
         return ""
 
     if len(value) <= show_chars:
-        # Very short values: redact almost everything anyway
         return value[0] + "*" * (len(value) - 1) if len(value) > 1 else "*"
 
-    visible = value[:show_chars]
-    hidden = "*" * (len(value) - show_chars)
-    return visible + hidden
+    return value[:show_chars] + "*" * (len(value) - show_chars)
 
 
 def print_header():
@@ -34,13 +20,7 @@ def print_header():
 
 
 def print_finding(finding: dict):
-    """
-    Print a single finding in the required format.
-
-    Expected keys in `finding`:
-        severity, secret_type, file_path, line_number, method,
-        redacted_value, entropy (optional)
-    """
+    """Print a single finding."""
     print(f"[{finding['severity']}] {finding['secret_type']}")
     print(f"File   : {finding['file_path']}")
     print(f"Line   : {finding['line_number']}")
